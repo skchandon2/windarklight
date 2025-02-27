@@ -40,7 +40,10 @@ namespace WinDarkLight
                 Icon = notifyIcon,
                 ContextMenuStrip = new ContextMenuStrip()
                 {
-                    Items = { new ToolStripMenuItem("Exit", null, Exit) }
+                    Items = { 
+                        new ToolStripMenuItem("Exit", null, ExitClickHandler) 
+                        , new ToolStripMenuItem("About", null, AboutClickHandler)
+                    }
                 },
                 Visible = true
             };
@@ -78,10 +81,16 @@ namespace WinDarkLight
             }
         }
 
-        void Exit(object? sender, EventArgs e)
+        void ExitClickHandler(object? sender, EventArgs e)
         {
             _trayIcon.Visible = false;
             Application.Exit();
+        }
+
+        void AboutClickHandler(object? sender, EventArgs e)
+        {
+            Form1 aboutForm = new Form1();
+            aboutForm.ShowDialog();
         }
 
         private int GetRegistryValue(string valueName)
