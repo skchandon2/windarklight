@@ -8,12 +8,28 @@ using System;
 using System.Security.Permissions;
 using Microsoft.Win32;
 using System.Windows.Forms;
-
+using System.Runtime.InteropServices;
 
 namespace WinDarkLight
 {
+    public struct COPYDATASTRUCT
+    {
+        public int cbData;
+        public IntPtr dwData;
+        [MarshalAs(UnmanagedType.LPStr)] public string lpData;
+    }
     internal class SKCustomAppContext : ApplicationContext
     {
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        public static extern IntPtr SendMessageTimeout(
+            IntPtr hWnd,
+            uint Msg,
+            IntPtr wParam,
+            IntPtr lParam,
+            uint fuFlags,
+            uint uTimeout,
+            out IntPtr lpdwResult);
+
         private NotifyIcon _trayIcon;
         private bool _isDark;
 
@@ -74,7 +90,7 @@ namespace WinDarkLight
                 _isDark = !_isDark;
 
                 //switch to dark
-                SwitchTotDarkMode();
+                SwitchToDarkMode();
 
                 //change icon to light                
                 _trayIcon.Icon = GetApplicableIcon(_isDark);
@@ -111,27 +127,101 @@ namespace WinDarkLight
             //int isCurrentAppsInLightMode = (int)isCurrentAppsInLightModeObj;
         }
 
-        private void SwitchTotDarkMode()
+        private void SwitchToDarkMode()
         {
             // 1 = light mode; 0 = dark mode
-            SetRegistryValue("SystemUsesLightTheme", 0);
-            SetRegistryValue("AppsUseLightTheme", 0);
+            SetCurrentVersionRegistryValue("SystemUsesLightTheme", 0);
+            SetCurrentVersionRegistryValue("AppsUseLightTheme", 0);
+
+            BroadcastThemeChange();
         }
 
         private void SwitchToLightMode()
         {
             // 1 = light mode; 0 = dark mode
-            SetRegistryValue("SystemUsesLightTheme", 1);
-            SetRegistryValue("AppsUseLightTheme", 1);
+            SetCurrentVersionRegistryValue("SystemUsesLightTheme", 1);
+            SetCurrentVersionRegistryValue("AppsUseLightTheme", 1);
+
+            BroadcastThemeChange();
         }
 
-        private void SetRegistryValue(string valueName, object val)
+        private void BroadcastThemeChange()
         {
-            //read registry to get the current mode
+            const uint WM_SETTINGCHANGE = 0x001A;
+            const uint SMTO_ABORTIFHUNG = 0x0002;
+            IntPtr HWND_BROADCAST = new IntPtr(0xffff);
+
+            // Broadcast "ImmersiveColorSet"
+            IntPtr lParamThemeChanged = Marshal.StringToHGlobalUni("ImmersiveColorSet");
+            try
+            {
+                SendMessageTimeout(
+                    HWND_BROADCAST,
+                    WM_SETTINGCHANGE,
+                    IntPtr.Zero,
+                    lParamThemeChanged,
+                    SMTO_ABORTIFHUNG,
+                    1000,
+                    out _);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(lParamThemeChanged);
+            }
+
+            // Broadcast "WindowsThemeElement"
+            IntPtr lParamTheme = Marshal.StringToHGlobalUni("WindowsThemeElement");
+            try
+            {
+                SendMessageTimeout(
+                    HWND_BROADCAST,
+                    WM_SETTINGCHANGE,
+                    IntPtr.Zero,
+                    lParamTheme,
+                    SMTO_ABORTIFHUNG,
+                    1000,
+                    out _);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(lParamTheme);
+            }
+
+            // Optionally, also broadcast "UserPreferences"
+            IntPtr lParamUserPref = Marshal.StringToHGlobalUni("UserPreferences");
+            try
+            {
+                SendMessageTimeout(
+                    HWND_BROADCAST,
+                    WM_SETTINGCHANGE,
+                    IntPtr.Zero,
+                    lParamUserPref,
+                    SMTO_ABORTIFHUNG,
+                    1000,
+                    out _);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(lParamUserPref);
+            }
+        }
+
+        private void SetCurrentVersionRegistryValue(string valueName, object val)
+        {
+            //current theme path
             string keyPath = @"HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize";
 
             //set current system preference: 1 = light mode; 0 = dark mode
-            Registry.SetValue(keyPath, valueName, val);
+            Registry.SetValue(keyPath, valueName, val, RegistryValueKind.DWord);
+
+            //Registry.CurrentUser.Flush();
+        }
+
+        private void SetRegistryValueWithPath(string keyPath, string valueName, object val)
+        {
+
+            //set current system preference: 1 = light mode; 0 = dark mode
+            Registry.SetValue(keyPath, valueName, val, RegistryValueKind.DWord);
 
         }
 
