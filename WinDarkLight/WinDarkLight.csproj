@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -10,12 +10,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Update="icons\dark_mode_icon.ico">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-    <None Update="icons\light_mode_icon.ico">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+    <EmbeddedResource Include="icons\dark_mode_icon.ico" />
+    <EmbeddedResource Include="icons\light_mode_icon.ico" />
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Resources;
@@ -34,9 +34,19 @@ namespace WinDarkLight
         {
             _isDark = false;
             
-            var specialFolderPath = AppContext.BaseDirectory;
-            _darkModeIcon = new System.Drawing.Icon(specialFolderPath + @"\icons\dark_mode_icon.ico");
-            _lightModeIcon = new System.Drawing.Icon(specialFolderPath + @"\icons\light_mode_icon.ico");
+            var assembly = System.Reflection.Assembly.GetExecutingAssembly();
+            
+            using (var darkStream = assembly.GetManifestResourceStream("WinDarkLight.icons.dark_mode_icon.ico"))
+            {
+                if (darkStream == null) throw new Exception("dark mode icon not found in resources");
+                _darkModeIcon = new System.Drawing.Icon(darkStream);
+            }
+
+            using (var lightStream = assembly.GetManifestResourceStream("WinDarkLight.icons.light_mode_icon.ico"))
+            {
+                if (lightStream == null) throw new Exception("light mode icon not found in resources");
+                _lightModeIcon = new System.Drawing.Icon(lightStream);
+            }
 
             //get the current mode
             var isCurrentSystemInLightMode = GetRegistryValue("SystemUsesLightTheme");
