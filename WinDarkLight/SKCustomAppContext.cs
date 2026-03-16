@@ -12,12 +12,7 @@ using System.Runtime.InteropServices;
 
 namespace WinDarkLight
 {
-    public struct COPYDATASTRUCT
-    {
-        public int cbData;
-        public IntPtr dwData;
-        [MarshalAs(UnmanagedType.LPStr)] public string lpData;
-    }
+
     internal class SKCustomAppContext : ApplicationContext
     {
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
@@ -32,11 +27,17 @@ namespace WinDarkLight
 
         private NotifyIcon _trayIcon;
         private bool _isDark;
+        private readonly Icon _darkModeIcon;
+        private readonly Icon _lightModeIcon;
 
         public SKCustomAppContext()
         {
             _isDark = false;
             
+            var specialFolderPath = AppContext.BaseDirectory;
+            _darkModeIcon = new System.Drawing.Icon(specialFolderPath + @"\icons\dark_mode_icon.ico");
+            _lightModeIcon = new System.Drawing.Icon(specialFolderPath + @"\icons\light_mode_icon.ico");
+
             //get the current mode
             var isCurrentSystemInLightMode = GetRegistryValue("SystemUsesLightTheme");
 
@@ -64,21 +65,44 @@ namespace WinDarkLight
                 Visible = true
             };
 
-            //attach even handler for changing
-            _trayIcon.Click += new System.EventHandler(FlipDarkOrLightTheme);
+            //attach event handler for clicking
+            _trayIcon.MouseClick += new MouseEventHandler(FlipDarkOrLightTheme);
 
+            //attach event handler for external system theme changes
+            SystemEvents.UserPreferenceChanged += UserPreferenceChanged;
         }
 
-        private void FlipDarkOrLightTheme(object? sender, System.EventArgs e)
+        private void UserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
         {
-            //Console.WriteLine("Flipping");
+            if (e.Category == UserPreferenceCategory.General)
+            {
+                // Re-read from registry to see what the active mode is now
+                var isCurrentSystemInLightMode = GetRegistryValue("SystemUsesLightTheme");
+                _isDark = (isCurrentSystemInLightMode == 0);
+
+                // Update the icon to reflect the new state
+                _trayIcon.Icon = GetApplicableIcon(_isDark);
+            }
+        }
+
+        private async void FlipDarkOrLightTheme(object? sender, MouseEventArgs e)
+        {
+            // Only toggle on Left click. Right click is reserved for Context Menu.
+            if (e.Button != MouseButtons.Left)
+                return;
+
+            // Show an intermediate loading state since the broadcast may take time
+            var waitIcon = System.Drawing.Icon.FromHandle(Cursors.WaitCursor.Handle);
+            _trayIcon.Icon = waitIcon;
+            _trayIcon.Text = "Applying theme changes...";
+
             if (_isDark)
             {
                 //flip the flag
                 _isDark = !_isDark;
 
-                //switch to light
-                SwitchToLightMode();
+                //switch under task worker so we don't block the UI thread
+                await Task.Run(() => SwitchToLightMode());
 
                 //change icon to dark
                 _trayIcon.Icon = GetApplicableIcon(_isDark);
@@ -89,17 +113,32 @@ namespace WinDarkLight
                 //flip the flag
                 _isDark = !_isDark;
 
-                //switch to dark
-                SwitchToDarkMode();
+                //switch under task worker so we don't block the UI thread
+                await Task.Run(() => SwitchToDarkMode());
 
                 //change icon to light                
                 _trayIcon.Icon = GetApplicableIcon(_isDark);
             }
+
+            _trayIcon.Text = "WinDarkLight";
+
+            // forcefully refresh the icon by toggling visibility
+            _trayIcon.Visible = false;
+            _trayIcon.Visible = true;
+            
+            // Clean up the temporary handle
+            waitIcon.Dispose();
         }
 
         void ExitClickHandler(object? sender, EventArgs e)
         {
+            // Detach system event to avoid memory leaks
+            SystemEvents.UserPreferenceChanged -= UserPreferenceChanged;
+
             _trayIcon.Visible = false;
+            _darkModeIcon.Dispose();
+            _lightModeIcon.Dispose();
+            _trayIcon.Dispose();
             Application.Exit();
         }
 
@@ -115,11 +154,15 @@ namespace WinDarkLight
             string keyPath = @"HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize";
 
             //check current system preference: 1 = light mode; 0 = dark mode
-            string registryValueName = valueName;// "SystemUsesLightTheme";
-            object registryValueObject = Registry.GetValue(keyPath, registryValueName, null);
-            int registryValueConvertedToInt = (int)registryValueObject;
+            object? registryValueObject = Registry.GetValue(keyPath, valueName, null);
+            
+            // Default to light mode (1) if the registry value does not exist
+            if (registryValueObject == null)
+            {
+                return 1;
+            }
 
-            return registryValueConvertedToInt;
+            return (int)registryValueObject;
 
             ////check current apps preference: 1 = light mode; 0 = dark mode
             //string valueNameAppLightMode = "AppsUseLightTheme";
@@ -227,16 +270,12 @@ namespace WinDarkLight
 
         private Icon GetApplicableIcon(bool isCurrentThemeIsDark)
         {
-            var specialFolderPath = AppContext.BaseDirectory;
-            var darkModeIcon = new System.Drawing.Icon(specialFolderPath + @"\icons\dark_mode_icon.ico");
-            var lightModeIcon = new System.Drawing.Icon(specialFolderPath + @"\icons\light_mode_icon.ico");
-            Icon notifyIcon = darkModeIcon;
             if (isCurrentThemeIsDark)
             {
                 //show light mode icon when system theme is set to dark mode
-                notifyIcon = lightModeIcon;
+                return _lightModeIcon;
             }
-            return notifyIcon;
+            return _darkModeIcon;
         }
     }
 }
