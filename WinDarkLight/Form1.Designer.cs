@@ -40,7 +40,7 @@
             label1.Name = "label1";
             label1.Size = new Size(525, 48);
             label1.TabIndex = 0;
-            label1.Text = "Copyright 2025 - Shah Chandon";
+            label1.Text = "Copyright 2026 - Shah Chandon";
             // 
             // label2
             // 
@@ -58,7 +58,7 @@
             label3.Name = "label3";
             label3.Size = new Size(296, 48);
             label3.TabIndex = 2;
-            label3.Text = "V 1.01.2025FEB27";
+            label3.Text = "V 1.01.2026.03.15";
             // 
             // Form1
             // 
