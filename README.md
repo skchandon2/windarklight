@@ -24,6 +24,7 @@ dotnet run
 
 ### Distributable (.exe) Download
 For normal users, **this app does not require installation or .NET dependencies**. 
+Visit the Releases page to download the latest version: https://github.com/skchandon2/windarklight/releases/tag/Release
 
 
 ## Tech Stack
