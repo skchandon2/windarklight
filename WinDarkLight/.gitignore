@@ -1,0 +1,14 @@
+# Build and publish outputs
+bin/
+obj/
+
+# Visual Studio files
+.vs/
+*.user
+*.suo
+
+# Other temporary or build-related files
+*.log
+*.tmp
+AppPackages/
+BundleArtifacts/
